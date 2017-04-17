@@ -3,36 +3,25 @@ library(tidyverse)
 library(gmodels)
 library(daewr)
 
-data <- read_csv(file = 'Assignment1.csv')[,-1]
+data <- read_csv(file = 'Assignment2.csv')
 data <- head(data,-1)
 
-data <- gather(data = data,
-       key = 'rf',
-       value = 'etchrate')
-data$rf <- as.numeric(data$rf)
+data <- reshape2::melt(data = data,id.vars='material',variable.name='temperature',value.name='batt_life')
+data$material <- as.factor(data$material)
+data$temperature <- as.factor(data$temperature)
+str(data)
+data
 
-boxplot(etchrate~rf,data,
-        xlab='RF Power',
-        ylab='Etch Rate')
+lattice::bwplot(batt_life~material+temperature,data)
+lattice::bwplot(batt_life~temperature|material,data)
+lattice::bwplot(batt_life~material|temperature,data)
 
-mod0 <- lm(etchrate~rf, data=data)
+mod0 <- lm(batt_life~material*temperature, data=data)
 summary(mod0)
 
-mod1 <- aov(etchrate~rf, data=data)
-summary(mod1)
-names(mod1)
-mod1$coefficients
-mod1$residuals
-par(mfrow = c(2,2))
-plot(mod1, which=5)
-plot(mod1, which=1)
-plot(mod1, which=2)
-plot(residuals(mod1) ~ rf,
-     main="Residuals vs Exp. Unit",
-     font.main=1,
-     data=data)
-abline(h=0, lty = 2)
+plot(effect(term="material*temperature",mod=mod0,default.levels=3),multiline=TRUE)
 
-data %>%
-    group_by(rf) %>%
-    summarise(var=var(etchrate))
+mod1 <- aov( batt_life~material*temperature, data = data )
+model.tables( mod1, type = "means", se = T )
+TukeyHSD(mod1)
+
