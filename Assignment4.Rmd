@@ -1,0 +1,120 @@
+---
+title: "Assignment 4"
+author: "Rahul Sangole"
+subtitle: Fractional Factorial Design – Market Research Experiment
+output:
+  html_document: 
+    highlight: pygments
+    theme: cosmo
+---
+
+Import libraries and setup the design using `pb()`. Also, overwritting the default factor names by the `factor.names` argument in `pb()` so that the dropped "I" factor name is brought back.
+
+```{r, message=FALSE, warning=FALSE}
+library(FrF2)
+library(DoE.base)
+library(daewr)
+library(dplyr)
+
+design <-
+    pb(
+        nruns = 20,
+        nfactors = 19,
+        factor.names = LETTERS[1:19],
+        randomize = FALSE
+    )
+
+y <-
+    c(
+        1.04,
+        0.76,
+        0.84,
+        2.68,
+        2.08,
+        1.20,
+        1.22,
+        1.36,
+        1.14,
+        0.60,
+        2.16,
+        0.78,
+        0.80,
+        0.98,
+        0.74,
+        1.98,
+        1.72,
+        0.86,
+        0.94,
+        2.08
+    )
+design <- add.response(design , y)
+
+design
+```
+
+### 1. Verify that in this design each main effect is aliased with all 2-factor interactions except those that involve that main effect
+
+I think this can be done visually using the `colormap()` function. Though, with the large number of factors and their 2-level interactions, it becomes very difficult to discern visually. 
+
+First, we can look at the colormap for this PB-20 design for just the first 5 factors. We can see:
+
+* Factor A is partially correlated with BD BE etc
+* Factor B is partially correlated with AD AE CE etc
+* Factor C is partially correlated with BE etc
+...
+
+Thus, each main effect is aliased with 2 factor interactions except those 2-factor interactions which contain the main effect.
+
+```{r}
+colormap(design = design[,1:5],mod = 2)
+```
+The colormap for the entire 20-factor design is as follows. Visually very hard to tell what's going on, but upon closer inspection, it follows the pattern above.
+```{r}
+colormap(design = design,mod = 2)
+```
+
+### 2. Verify that the five largest main effects are S, G, R, I, and J.
+
+This can be done in two ways:
+
+1. Look at the top 5 absolute values of the coefficients of a linear model:
+
+```{r}
+mod1 <- lm(y ~ (.) ^ 2, data = design)
+sort(abs(coef(mod1)),decreasing = T)[2:6]
+```
+
+2. Visually, we can plot a half-normal plot and arrive at the same conclusion:
+```{r}
+cfs <- coef(mod1)[2:20] 
+names <- names(cfs) 
+halfnorm(cfs, names, alpha = .25, refline = FALSE) 
+```
+
+### 4. Fit a full factorial model involving all 3 of these factors and the interactions. Show that S, G, and the SG interaction are significant.
+
+First, select the 3 factors S, G, R and the response y.
+
+```{r}
+df <- tbl_df(design) %>% 
+    select(S,G,R,y)
+print(df)
+```
+
+The first three columns contain a full factorial design in 3 factors, with a few of the runs repeated.
+
+This can be confirmed using this code:
+
+```{r}
+df %>% select(-y) %>% unique %>% arrange(S,G,R)
+```
+
+Now, we fit a full factorial model to `df` including all 2 level interactions:
+
+```{r}
+df.lm <- lm(y~(.)^2,df)
+summary(df.lm)
+```
+S and G are highly significant (p<1e-3), while S-G interaction is significant at the 0.05 level (p=0.35<0.05).
+
+We can also see that the main effect R is not significant (p=0.36>0.05).
